@@ -1,0 +1,200 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME = "jenkins-demo-app"
+        IMAGE_NAME = "jenkins-demo-app"
+        CONTAINER_NAME = "jenkins-demo-app"
+        HOST_PORT = "8081"
+
+        // Monitoring agent runs on the same EC2 host as Jenkins.
+        MONITOR_URL = "http://127.0.0.1:5001"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                echo "========================================"
+                echo "CHECKOUT"
+                echo "========================================"
+
+                checkout scm
+            }
+        }
+
+        stage('Validate') {
+            steps {
+                echo "========================================"
+                echo "VALIDATING APPLICATION"
+                echo "========================================"
+
+                sh '''
+                    set -e
+
+                    echo "Checking app/index.html..."
+                    test -f app/index.html
+
+                    echo "Checking app/Dockerfile..."
+                    test -f app/Dockerfile
+
+                    echo "Application files are present."
+                '''
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo "========================================"
+                echo "BUILDING DOCKER IMAGE"
+                echo "========================================"
+
+                sh '''
+                    set -e
+
+                    echo "Docker version:"
+                    docker --version
+
+                    echo "Building image..."
+
+                    docker build \
+                        -t ${IMAGE_NAME}:${BUILD_NUMBER} \
+                        -t ${IMAGE_NAME}:latest \
+                        ./app
+
+                    echo "Docker image build completed successfully."
+
+                    echo "Available images:"
+                    docker images ${IMAGE_NAME}
+                '''
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo "========================================"
+                echo "DEPLOYING APPLICATION"
+                echo "========================================"
+
+                sh '''
+                    set -e
+
+                    echo "Removing old container if it exists..."
+
+                    docker rm -f ${CONTAINER_NAME} 2>/dev/null || true
+
+                    echo "Starting new container..."
+
+                    docker run -d \
+                        --name ${CONTAINER_NAME} \
+                        --restart unless-stopped \
+                        -p ${HOST_PORT}:80 \
+                        ${IMAGE_NAME}:${BUILD_NUMBER}
+
+                    echo "Container started."
+
+                    echo "Waiting for application to start..."
+                    sleep 5
+
+                    echo "Checking running container..."
+
+                    docker ps \
+                        --filter "name=${CONTAINER_NAME}"
+
+                    echo "Application container logs:"
+                    docker logs ${CONTAINER_NAME} 2>&1 | tail -50
+                '''
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                echo "========================================"
+                echo "APPLICATION HEALTH CHECK"
+                echo "========================================"
+
+                sh '''
+                    set -e
+
+                    echo "Testing:"
+                    echo "http://127.0.0.1:${HOST_PORT}/"
+
+                    curl -f \
+                        --max-time 15 \
+                        http://127.0.0.1:${HOST_PORT}/
+
+                    echo ""
+                    echo "Application health check PASSED."
+                '''
+            }
+        }
+    }
+
+    post {
+
+        success {
+            echo "========================================"
+            echo "DEPLOYMENT SUCCESSFUL"
+            echo "========================================"
+
+            echo "Application: ${APP_NAME}"
+            echo "Build Number: ${BUILD_NUMBER}"
+            echo "Application Port: ${HOST_PORT}"
+            echo "Jenkins Build URL: ${BUILD_URL}"
+
+            echo "Application is available on:"
+            echo "http://YOUR_EC2_PUBLIC_IP:${HOST_PORT}"
+        }
+
+        failure {
+            echo "========================================"
+            echo "BUILD FAILED"
+            echo "========================================"
+
+            echo "Job Name: ${JOB_NAME}"
+            echo "Build Number: ${BUILD_NUMBER}"
+            echo "Build URL: ${BUILD_URL}"
+
+            echo "Sending failure information to monitoring agent..."
+
+            sh '''
+                set +e
+
+                curl -sS \
+                    --max-time 30 \
+                    -X POST \
+                    --data-urlencode "job_name=${JOB_NAME}" \
+                    --data-urlencode "build_number=${BUILD_NUMBER}" \
+                    "${MONITOR_URL}/jenkins/failure"
+
+                CURL_EXIT_CODE=$?
+
+                if [ ${CURL_EXIT_CODE} -ne 0 ]; then
+                    echo "WARNING: Could not contact monitoring agent."
+                    echo "Monitoring agent URL: ${MONITOR_URL}"
+                else
+                    echo "Failure notification successfully sent to monitoring agent."
+                fi
+
+                exit 0
+            '''
+        }
+
+        always {
+            echo "========================================"
+            echo "BUILD FINISHED"
+            echo "========================================"
+
+            echo "Job: ${JOB_NAME}"
+            echo "Build: ${BUILD_NUMBER}"
+            echo "Result: ${currentBuild.currentResult}"
+            echo "Build URL: ${BUILD_URL}"
+
+            echo "Cleaning temporary Docker resources..."
+
+            sh '''
+                docker image prune -f || true
+            '''
+        }
+    }
+}

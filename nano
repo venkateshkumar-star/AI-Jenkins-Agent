@@ -1,0 +1,24 @@
+services:
+
+  agent:
+    build:
+      context: ./agent
+    container_name: jenkins-monitor-agent
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    environment:
+      JENKINS_URL: ${JENKINS_URL}
+      JENKINS_USER: ${JENKINS_USER}
+      JENKINS_TOKEN: ${JENKINS_TOKEN}
+      DASHBOARD_URL: http://dashboard:5000
+    depends_on:
+      - dashboard
+
+  dashboard:
+    build:
+      context: ./dashboard
+    container_name: jenkins-monitor-dashboard
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
