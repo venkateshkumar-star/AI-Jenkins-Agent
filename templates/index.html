@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<title>Jenkins AI Troubleshooting Agent</title>
+
+<meta
+    http-equiv="refresh"
+    content="10"
+>
+
+<style>
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f4f6f8;
+}
+
+.header {
+    background: #20232a;
+    color: white;
+    padding: 20px;
+}
+
+.container {
+    width: 90%;
+    margin: 30px auto;
+}
+
+.card {
+    background: white;
+    padding: 25px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.failed {
+    color: #c62828;
+    font-weight: bold;
+}
+
+pre {
+    background: #111;
+    color: #00ff00;
+    padding: 20px;
+    overflow-x: auto;
+    border-radius: 5px;
+    white-space: pre-wrap;
+}
+
+.analysis {
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+
+.label {
+    font-weight: bold;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="header">
+
+<h1>
+Jenkins AI Troubleshooting Agent
+</h1>
+
+<p>
+Automatic Jenkins failure analysis
+</p>
+
+</div>
+
+<div class="container">
+
+<div class="card">
+
+<h2>Build Information</h2>
+
+<p>
+<span class="label">Status:</span>
+
+<span class="failed">
+{{ failure.status }}
+</span>
+</p>
+
+<p>
+<span class="label">Job:</span>
+{{ failure.job }}
+</p>
+
+<p>
+<span class="label">Build:</span>
+{{ failure.build }}
+</p>
+
+<p>
+<span class="label">Time:</span>
+{{ failure.time }}
+</p>
+
+</div>
+
+
+<div class="card">
+
+<h2>Jenkins Error Log</h2>
+
+<pre>{{ failure.error }}</pre>
+
+</div>
+
+
+<div class="card">
+
+<h2>AI Troubleshooting Instructions</h2>
+
+<div class="analysis">
+
+{{ failure.analysis }}
+
+</div>
+
+</div>
+
+</div>
+
+</body>
+
+</html>
