@@ -39,7 +39,7 @@ pipeline {
 
                     echo "Building Docker image..."
 
-                    docker build \
+                    docker  \
                         -t ${IMAGE_NAME}:${BUILD_NUMBER} \
                         -t ${IMAGE_NAME}:latest \
                         ./app
